@@ -449,7 +449,7 @@ class PlayerClass:
 
         if self.voice_client.is_connected():
 
-            if self.autoplay and len(self.info_container) != 0:
+            if self.autoplay:
 
                 page_source = BeautifulSoup(self.requests.get(
                     self.info_container[0][LINK], headers=user_agent).text, "html.parser")
@@ -459,16 +459,14 @@ class PlayerClass:
                 for element in elements:
                     title = element["title"]
                     if (title not in self.anti_duplicates):
-                        print("before")
-                        print(self.info_container)
                         self.info_container.append((title, f"https://www.youtube.com{element['href']}",
                                                     f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
-                        print("after", self.info_container)
                         self.anti_duplicates.add(title)
+                        del self.info_container[0]
                         await self.downloadMusic(message, False)
-                        break
-
-            if self.loop == False:
+                        return
+            
+            if not self.loop:
                 # bot stopped, everything was reset/deleted
                 try:
                     os.remove(
@@ -477,7 +475,7 @@ class PlayerClass:
                     print(e)
                 
                 del self.info_container[0]
-
+                
             if len(self.info_container) == 0:
                 await message.channel.send(embed=discord.Embed(title="Queue is empty", color=red))
                 if not self.invisible_bool:
