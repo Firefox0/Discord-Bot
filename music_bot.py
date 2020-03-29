@@ -176,7 +176,8 @@ class PlayerClass:
     playlist_queue = []
     invisible_bool = False # invisible status
     requests = requests.Session()
-        
+    direct = 1 
+
     async def removeMusic(self, message, content):
         if 0 < content < len(self.info_container):
             await message.channel.send(embed=discord.Embed(title="Removed", description=f"[{self.info_container[content][TITLE]}]({self.info_container[content][LINK]})", color=blue))
