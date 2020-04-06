@@ -8,7 +8,11 @@ from discord import FFmpegPCMAudio
 
 bot = commands.Bot(command_prefix=">")
 
-class DiscordClient(discord.Client):
+class Discord_Player(discord.Client):
+
+    def __init__(self, db):
+        self.connection = sqlite3.connect(db)
+        self.cursor = self.connection.cursor()
 
     @bot.event
     async def on_ready():
@@ -18,7 +22,7 @@ class DiscordClient(discord.Client):
     @bot.command()
     async def play(self, *args):
         Player.leave = False
-        await Player.retrieve_data(self.message, " ".join(arg for arg in args), False, False)
+        await Player.retrieve_data(self.message, " ".join(arg for arg in args))
 
     @bot.command()
     async def remove(self, content):
@@ -99,64 +103,31 @@ class DiscordClient(discord.Client):
         except:
             pass
 
-        if args[0] == "play":
-            Player.playlist_queue = []
-            info = cursor.execute("SELECT title, link from {}".format(
-                f"a{self.message.author.id}"))
-            for row in info:
-                Player.playlist_queue.append(row)
-            await Player.retrieve_data(self.message, Player.playlist_queue[0][1], False, True)
-        elif args[0] == "add":
-            try:
-                title, link = await Player.retrieve_data(self.message, " ".join(arg for arg in args[1:]), True, False)
-                cursor.execute("INSERT INTO {}(title, link) VALUES (?, ?)".format(
-                    f"a{self.message.author.id}"), (title, link))
-            except IndexError:
-                await self.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
-            else:
-                connection.commit()
-                await self.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
-        elif args[0] == "show":
-            info = cursor.execute("SELECT title, link from {}".format(f"a{self.message.author.id}"))
-            stringContainer = []
-            for i, e in enumerate(info):
-                stringContainer.append(f"{i+1}: [{e[0]}]({e[1]})")
-            if len(stringContainer) != 0:
-                await self.channel.send(embed=discord.Embed(title="Your playlist", description="\n".join(stringContainer), color=blue))
-            else:
-                await self.channel.send(embed=discord.Embed(title="Your playlist is empty", color=red))
-        elif args[0] == "delete":
-            try:
-                cursor.execute("DELETE from {} where id = (?)".format(
-                    f"a{self.message.author.id}"), (args[1],))
-            except IndexError:
-                await self.channel.send(embed=discord.Embed(title="Error", description="I need a number to delete the song", color=red))
-            else:
-                connection.commit()
-                cursor.execute(
-                    "UPDATE {} SET id = id-1 WHERE id > (?)".format(f"a{self.message.author.id}"), (args[1],))
-                await self.channel.send(embed=discord.Embed(title="Song successfully deleted", color=blue))
-        elif args[0] == "move":
-            min_ = min([int(args[1]), int(args[2])])
-            rows = list(cursor.execute("SELECT title, link FROM {} WHERE id>=?".format(f"a{self.message.author.id}"), (min_,)))
-            if args[1] < args[2]:
-                rows.insert(int(args[2])-min_+1, rows[0])
-                del rows[0]
-            else:
-                rows.insert(0, rows[int(args[1])-min_])
-                del rows[int(args[1])-min_+1]
-            def my_generator():
-                for e in rows:
-                    yield e
-            cursor.execute("DELETE FROM {} WHERE id>=?".format(f"a{self.message.author.id}"), (min_,))
-            cursor.executemany("INSERT INTO {}(title, link) VALUES(?, ?)".format(f"a{self.message.author.id}"), my_generator())
-            connection.commit()
-            await self.channel.send(embed=discord.Embed(title="Successfully moved", color=blue))
-        elif args[0] == "clear":
-            cursor.execute("DROP TABLE {}".format(f"a{self.message.author.id}"))
-            await self.channel.send(embed=discord.Embed(title="Successfully cleared", color=blue))
+    @bot.command()
+    async def playlistplay(self):
+        await Player.playlist_play(self.message)
 
-class PlayerClass:
+    @bot.command()
+    async def playlistadd(self, arg):
+        await Player.playlist_add(self.message, arg)
+    
+    @bot.command()
+    async def playlistshow(self):
+        await Player.playlist_show(self.message)
+
+    @bot.command()
+    async def playlistdelete(self, arg):
+        await Player.playlist_delete(self.message, arg)
+
+    @bot.command()
+    async def playlistmove(self, arg):
+        await Player.playlist_move(self.message, arg)
+
+    @bot.command()
+    async def playlistclear(self):
+        await Player.playlist_clear(self.message)
+
+class Discord_Player:
 
     info_container = []  # structure ["title", "link", "file"]
     anti_duplicates = set()  # init. set for lookup (faster), = {} would be dict
@@ -177,6 +148,85 @@ class PlayerClass:
     invisible_bool = False # invisible status
     requests = requests.Session()
     direct = 1 
+
+    def __init__(self, db):
+        self.connection = sqlite3.connect(db)
+        self.cursor = self.connection.cursor()
+
+    async def is_playing(self):
+        if self.playing:
+            return 1
+        return 0
+
+    async def playlist_play(self, message): 
+        info = self.cursor.execute("SELECT title, link from {}".format(
+            f"a{message.author.id}"))
+        for row in info:
+            self.playlist_queue.append(row)
+        await self.retrieve_and_download(self.playlist_queue[0][1])
+        del self.playlist_queue[0]
+
+    async def playlist_add(self, message, args):
+        try:
+            title, link = await self.retrieve_data(self.message, " ".join(arg for arg in args[1:]), True)
+            self.cursor.execute("INSERT INTO {}(title, link) VALUES (?, ?)".format(
+                f"a{self.message.author.id}"), (title, link))
+        except IndexError:
+            await self.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
+        self.connection.commit()
+        await self.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
+
+    async def playlist_show(self, message):
+        info = self.cursor.execute("SELECT title, link from {}".format(message.author.id))
+        stringContainer = []
+        for i, e in enumerate(info):
+            stringContainer.append(f"{i+1}: [{e[0]}]({e[1]})")
+        if len(stringContainer) != 0:
+            await message.channel.send(embed=discord.Embed(title="Your playlist", description="\n".join(stringContainer), color=blue))
+        await message.channel.send(embed=discord.Embed(title="Your playlist is empty", color=red))
+
+    async def playlist_delete(self, message, args): 
+        try:
+            self.cursor.execute("DELETE from {} where id = (?)".format(
+                f"a{self.message.author.id}"), (args[1],))
+        except IndexError:
+            await self.channel.send(embed=discord.Embed(title="Error", description="I need a number to delete the song", color=red))
+        else:
+            self.connection.commit()
+            self.cursor.execute(
+                "UPDATE {} SET id = id-1 WHERE id > (?)".format(f"a{self.message.author.id}"), (args[1],))
+            await self.channel.send(embed=discord.Embed(title="Song successfully deleted", color=blue))
+
+    async def playlist_move(self, message, args):
+        try:
+            min_ = min([int(args[1]), int(args[2])])
+            rows = list(self.cursor.execute("SELECT title, link FROM {} WHERE id>=?".format(f"a{message.author.id}"), (min_,)))
+            if args[1] < args[2]:
+                rows.insert(int(args[2])-min_+1, rows[0])
+                del rows[0]
+            else:
+                rows.insert(0, rows[int(args[1])-min_])
+                del rows[int(args[1])-min_+1]
+
+            def my_generator():
+                for e in rows:
+                    yield e
+
+            self.cursor.execute("DELETE FROM {} WHERE id>=?".format(f"a{self.message.author.id}"), (min_,))
+            self.cursor.executemany("INSERT INTO {}(title, link) VALUES(?, ?)".format(f"a{self.message.author.id}"), my_generator())
+            self.connection.commit()
+        except:
+            await self.channel.send(embed=discord.Embed(title="Error while moving", color=red))
+        else:
+            await self.channel.send(embed=discord.Embed(title="Successfully moved", color=blue))
+
+    async def playlist_clear(self, message):
+        try:
+            self.cursor.execute("DROP TABLE {}".format(f"a{self.message.author.id}"))
+        except:
+            await self.channel.send(embed=discord.Embed(title="Error while clearing", color=red))
+        else:
+            await self.channel.send(embed=discord.Embed(title="Successfully cleared", color=blue))
 
     async def removeMusic(self, message, content):
         if 0 < content < len(self.info_container):
@@ -293,11 +343,91 @@ class PlayerClass:
     async def currentVolume(self, message):
         await message.channel.send(embed=discord.Embed(title=f"Current volume is: {self.volume*100}", color=blue))
 
-    async def retrieve_data(self, message, args, playlist_add, playlist_bool):
+    async def scrape_videos(self, channel, page_source):
+            elements = page_source.findAll("div", attrs={
+                "class": "yt-lockup yt-lockup-tile yt-lockup-video vve-check clearfix"})
+            # no search result
+            if len(elements) == 0:
+                await channel.send(embed=discord.Embed(title="That does not exist", color=red))
+                return -1
 
-        # if it gets called by playlist play
-        if playlist_bool:
-            del self.playlist_queue[0]
+            music_list = []
+
+            range_ = self.displayedSongs
+            if self.direct: 
+                range_ = 1
+
+            for index in range(range_):
+                temp_title = music_list.append([elements[index].find("a", attrs={
+                    "class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link"})["title"]])
+                temp_href = music_list[index].append(
+                    f"https://www.youtube.com{elements[index].find('a', attrs={'class': 'yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link'})['href']}")
+                # livestreams dont have time
+                try:
+                    temp_length = music_list[index].append(
+                        elements[index].find("span", attrs={"class": "video-time"}).text)
+                except AttributeError:
+                    temp_length = music_list[index].append("LIVE")
+                    pass
+
+                temp_view = ""
+                for element in elements[index].findAll("li"):
+                    if "views" in element.text:
+                        temp_view = music_list[index].append(
+                            f"{element.text.split(' ')[0]} Views")
+                        break
+                    elif "watching" in element.text:
+                        temp_view = music_list[index].append(
+                            f"{element.text.split(' ')[0]} Viewers")
+                        break
+
+                if temp_view == "":
+                    temp_view = music_list[index].append("")
+
+                music_list[index].append(
+                    (temp_title, temp_href, temp_length, temp_view))
+            
+            return music_list
+
+    async def offer_music(self, channel, music_list):
+        # offer user some music
+        if not self.direct:
+            l = []
+            for index in range(len(music_list)):
+                l.append(
+                    f"{self.number_emotes[index]}: [{music_list[index][TITLE]}]({music_list[index][LINK]}) ({music_list[index][TIME]}) {music_list[index][VIEWS]}\n")
+            await channel.send(embed=discord.Embed(title="Pick a song", description=f"{''.join(l)}\n:regional_indicator_c: : Cancel", color=blue))
+
+            # let user choose music
+            while True:
+                msg = await bot.wait_for("message")
+                # ignore bot messages
+                if msg.author.id == bot.user.id:
+                    continue
+
+                try:
+                    if msg.content.lower() == "c":
+                        await channel.send(embed=discord.Embed(title="Canceled", color=blue))
+                        return -1
+                    elif int(msg.content) > 0 and int(msg.content) <= self.displayedSongs:
+                        break
+                    else:
+                        raise Exception
+                except:
+                    await channel.send(embed=discord.Embed(title="Did you pick a song from the list? Retry.", color=red))
+
+            # -1 to get correct list index
+            chosenMusic = int(msg.content)-1
+        else:
+            chosenMusic = 0
+
+        # save music
+        title = music_list[chosenMusic][TITLE]
+        link = music_list[chosenMusic][LINK]
+
+        return title, link
+
+    async def retrieve_data(self, message, args, playlist_add=0):
 
         if ("youtube." in args):
             page_source = BeautifulSoup(self.requests.get(
@@ -308,94 +438,15 @@ class PlayerClass:
         else:
             page_source = BeautifulSoup(self.requests.get(
                 f"https://www.youtube.com/results?search_query={args.replace(' ', '+')}", headers=user_agent).text, "html.parser")
-            elements = page_source.findAll("div", attrs={
-                "class": "yt-lockup yt-lockup-tile yt-lockup-video vve-check clearfix"})
-            # no search result
-            if len(elements) == 0:
-                await message.channel.send(embed=discord.Embed(title="That does not exist", color=red))
-                return -1
+            scraped = await self.scrape_videos(message.channel, page_source)
+            title, link = await self.offer_music(message.channel, scraped)
 
-            # declare temporary lists which are used to offer songs, useless afterwards
-            # structure: ["title", "link", "time", "views"]
-            temp_container = []
+        # method got called by playlist add
+        if playlist_add:
+            return title, link
 
-            # get titles and links
-            range_ = self.displayedSongs
-            if self.direct: 
-                range_ = 1
-
-            for index in range(range_):
-                temp_title = temp_container.append([elements[index].find("a", attrs={
-                    "class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link"})["title"]])
-                temp_href = temp_container[index].append(
-                    f"https://www.youtube.com{elements[index].find('a', attrs={'class': 'yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link'})['href']}")
-                # livestreams dont have time
-                try:
-                    temp_length = temp_container[index].append(
-                        elements[index].find("span", attrs={"class": "video-time"}).text)
-                except AttributeError:
-                    temp_length = temp_container[index].append("LIVE")
-                    pass
-
-                # multiple li tags, get correct one
-                temp_view = ""
-                for element in elements[index].findAll("li"):
-                    if "views" in element.text:
-                        temp_view = temp_container[index].append(
-                            f"{element.text.split(' ')[0]} Views")
-                        break
-                    elif "watching" in element.text:
-                        temp_view = temp_container[index].append(
-                            f"{element.text.split(' ')[0]} Viewers")
-                        break
-
-                if temp_view == "":
-                    temp_view = temp_container[index].append("")
-
-                temp_container[index].append(
-                    (temp_title, temp_href, temp_length, temp_view))
-
-            # offer user some music
-            if not self.direct:
-                l = []
-                for index in range(len(temp_container)):
-                    l.append(
-                        f"{self.number_emotes[index]}: [{temp_container[index][TITLE]}]({temp_container[index][LINK]}) ({temp_container[index][TIME]}) {temp_container[index][VIEWS]}\n")
-                await message.channel.send(embed=discord.Embed(title="Pick a song", description=f"{''.join(l)}\n:regional_indicator_c: : Cancel", color=blue))
-
-                # let user choose music
-                while True:
-                    msg = await bot.wait_for("message")
-                    # ignore bot messages
-                    if msg.author.id == bot.user.id:
-                        continue
-
-                    try:
-                        if msg.content.lower() == "c":
-                            await message.channel.send(embed=discord.Embed(title="Canceled", color=blue))
-                            return -1
-                        elif int(msg.content) > 0 and int(msg.content) <= self.displayedSongs:
-                            break
-                        else:
-                            raise Exception
-                    except:
-                        await message.channel.send(embed=discord.Embed(title="Did you pick a song from the list? Retry.", color=red))
-
-                # -1 to get correct list index
-                chosenMusic = int(msg.content)-1
-            else:
-                chosenMusic = 0
-
-            # save music
-            title = temp_container[chosenMusic][TITLE]
-            link = temp_container[chosenMusic][LINK]
-
-            # method got called by playlist add
-            if playlist_add:
-                return title, link
-
-            self.info_container.append(
-                (title.replace(' - YouTube', ''), link, f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
+        self.info_container.append(
+            (title.replace(' - YouTube', ''), link, f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
 
         try:
             await self.downloadMusic(message, True)
@@ -411,7 +462,6 @@ class PlayerClass:
         }
 
         with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
-            print(f"downloading: {[self.info_container[-1][LINK]]}")
             ytdl.download([self.info_container[-1][LINK]])
 
         # user_input tells if this method call was made from the user or autoplay
@@ -426,6 +476,8 @@ class PlayerClass:
         except discord.errors.ClientException as e:
             if e == "Already connected to a voice channel.":
                 pass
+        except AttributeError:
+            pass
         
         try:
             self.voice_client.play(discord.PCMVolumeTransformer(discord.FFmpegPCMAudio(
@@ -444,12 +496,13 @@ class PlayerClass:
         while self.voice_client.is_playing() or self.voice_client.is_paused():
             # playlist function, keeps adding new music from playlist_queue while playing a song
             if len(self.playlist_queue) > 0:
-                await self.retrieve_data(message, self.playlist_queue[0][1], False, True)
+                await self.retrieve_data(message, self.playlist_queue[0][1])
             await asyncio.sleep(1)
 
         if self.voice_client.is_connected():
-
-            if self.autoplay:
+            
+            # autoplay last song only
+            if self.autoplay and len(self.info_container) == 1:
 
                 page_source = BeautifulSoup(self.requests.get(
                     self.info_container[0][LINK], headers=user_agent).text, "html.parser")
@@ -529,7 +582,7 @@ if __name__ == "__main__":
     VIEWS = 3
 
     # creating instances
-    Player = PlayerClass()
+    Player = Discord_Player("playlists.db")
 
     print("Logging in...")
 
