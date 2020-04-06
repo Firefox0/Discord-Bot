@@ -1,18 +1,14 @@
 import discord, asyncio, requests, sqlite3,\
-        os, sys, youtube_dl
+        os, sys
 from bs4 import BeautifulSoup
 from discord.ext import commands
 from discord.voice_client import VoiceClient
 from discord.utils import get
-from discord import FFmpegPCMAudio
+from music_lib import Discord_Player
 
 bot = commands.Bot(command_prefix=">")
 
-class Discord_Player(discord.Client):
-
-    def __init__(self, db):
-        self.connection = sqlite3.connect(db)
-        self.cursor = self.connection.cursor()
+class Client(discord.Client):
 
     @bot.event
     async def on_ready():
@@ -155,18 +151,8 @@ if __name__ == "__main__":
 
     user_agent = {"Accept-Language": "en-US,en;q=0.5"}
 
-    blue = 0x006bff
-    red = 0xec1717
-
-    # constant variables to access elements in tuples in list
-    TITLE = 0
-    LINK = 1
-    FILE = 2
-    TIME = 2
-    VIEWS = 3
-
     # creating instances
-    Player = Discord_Player("playlists.db")
+    Player = Discord_Player("playlists.db", bot)
 
     print("Logging in...")
 
