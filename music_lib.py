@@ -26,7 +26,7 @@ class Discord_Player:
     loop = False
     # characters which are getting replaced by microsoft windows, cuz you cant use them for your file
     restricted_characters = ["/", ":", "*", "?", '"', "<", ">", "|", "\\", "'"]
-    leave = False  # if owner made the bot leave
+    playing = False  # if owner made the bot leave
     # used when offering songs to user
     number_emotes = [
         ":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:",
@@ -429,6 +429,6 @@ class Discord_Player:
         # bot disconnects
         else:
             # last check if there is still music, bot sometimes randomly disconnects (timeout?)
-            if not self.leave:
+            if not self.playing:
                 self.voice_client = await self.author.voice.channel.connect(reconnect=True)
                 await self.play_music(message)
