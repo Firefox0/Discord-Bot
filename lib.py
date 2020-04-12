@@ -398,6 +398,17 @@ class Discord_Player:
 
         await self.play_music(msg)
 
+    async def delete_current_song(self):
+        try:
+            os.remove(
+                f"{sys.path[0]}\\{self.info_container[0][FILE]}")
+        except IndexError as e:
+            print(e)
+            return 0 
+
+        del self.info_container[0]
+        return 1
+
     async def play_music(self, msg):
         try:
             self.voice_client = await msg.author.voice.channel.connect(reconnect=1)
@@ -421,7 +432,7 @@ class Discord_Player:
             link = self.info_container[0][LINK]
 
             date = datetime.datetime.now()
-            self.history.append(f"{date.hour}:{date.minute}:{date.second} - [{title}]({link})")
+            self.history.append(f"{date.hour:02}:{date.minute:02}:{date.second:02} - [{title}]({link})")
 
             await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
                                    # get video id from url and use that to get thumbnail in mqdefault
@@ -437,33 +448,25 @@ class Discord_Player:
             await asyncio.sleep(1)
 
         if self.voice_client.is_connected():
-
+            
             # autoplay last song only
             if self.autoplay and len(self.info_container) == 1:
-
                 page_source = BeautifulSoup(self.requests.get(
                     self.info_container[0][LINK], headers=user_agent).text, "html.parser")
-                elements = page_source.findAll(
-                    "a", class_="content-link spf-link yt-uix-sessionlink spf-link")
-
+                elements = page_source.findAll("a", attrs={
+                                        "class":" content-link spf-link yt-uix-sessionlink spf-link "})
                 for element in elements:
                     title = element["title"]
                     if title not in self.anti_duplicates:
                         self.info_container.append((title, f"https://www.youtube.com{element['href']}",
                                                     f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
                         self.anti_duplicates.add(title)
-                        del self.info_container[0]
+                        await self.delete_current_song()
                         await self.download_music(msg)
-                        return
+                        return 1 
 
             if not self.loop:
-                try:
-                    os.remove(
-                        f"{sys.path[0]}\\{self.info_container[0][FILE]}")
-                except IndexError as e:
-                    print(e)
-
-                del self.info_container[0]
+                await self.delete_current_song()
 
             if len(self.info_container) == 0:
                 await msg.channel.send(embed=discord.Embed(title="Queue is empty", color=red))
