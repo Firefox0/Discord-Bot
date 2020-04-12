@@ -11,13 +11,16 @@ class Client(discord.Client):
 
     @bot.event
     async def on_ready():
-        print("Logged in.\n\nLogs: ")
+        print("Logged in\n\nLogs: ")
         await bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
 
     @bot.command()
     async def play(self, *args):
-        Player.leave = False
         await Player.retrieve_data(self.message, " ".join(arg for arg in args))
+    
+    @bot.command()
+    async def search(self, *args):
+        await Player.retrieve_data(self.message, " ".join(arg for arg in args), direct=0)
 
     @bot.command()
     async def remove(self, content):
@@ -168,7 +171,7 @@ if __name__ == "__main__":
     blue = 0x006bff
     red = 0xec1717
 
-    Player = Discord_Player("playlists.db", bot)
+    Player = Discord_Player("playlists.db", bot, "C4iLrGY61H9RzCVeuT7dQ8xLgpttKFxMepSC415eGDR6ys5IdG17yfOcP2AZWp5D")
 
     print("Logging in...")
 
