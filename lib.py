@@ -89,27 +89,24 @@ class Discord_Player:
         return lyrics
 
     async def playlist_play(self, msg):
-        info = self.cursor.execute("SELECT title, link from {}".format(
-            f"a{msg.author.id}"))
+        info = self.cursor.execute(f"SELECT title, link FROM a{msg.author.id}")
         for row in info:
             self.playlist_queue.append(row)
         tmp_song = self.playlist_queue[0][1]
         del self.playlist_queue[0]
         await self.retrieve_data(msg, tmp_song)
 
-    async def playlist_add(self, msg, args):
+    async def playlist_add(self, msg, args, direct=1):
         try:
-            title, link = await self.retrieve_data(self.msg, " ".join(arg for arg in args[1:]), 1)
-            self.cursor.execute("INSERT INTO {}(title, link) VALUES (?, ?)".format(
-                f"a{self.msg.author.id}"), (title, link))
+            title, link = await self.retrieve_data(msg, " ".join(arg for arg in args[1:]), direct, 1)
+            self.cursor.execute(f"INSERT INTO a{msg.author.id} (title, link) VALUES (?, ?)", (title, link))
         except IndexError:
             await self.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
         self.connection.commit()
         await self.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
 
     async def playlist_show(self, msg):
-        info = self.cursor.execute(
-            "SELECT title, link from a{}".format(msg.author.id))
+        info = self.cursor.execute(f"SELECT title, link from a{msg.author.id}")
         stringContainer = []
         for i, e in enumerate(info):
             stringContainer.append(f"{i+1}: [{e[0]}]({e[1]})")
@@ -444,8 +441,9 @@ class Discord_Player:
         while self.voice_client.is_playing() or self.voice_client.is_paused():
             # playlist function, keeps adding new music from playlist_queue while playing a song
             if len(self.playlist_queue) > 0:
-                await self.retrieve_data(msg, self.playlist_queue[0][1])
+                tmp_song = self.playlist_queue[0][1]
                 del self.playlist_queue[0]
+                await self.retrieve_data(msg, tmp_song)
             await asyncio.sleep(1)
 
         if self.voice_client.is_connected():
