@@ -19,7 +19,6 @@ VIEWS = 3
 
 size = 2048
 
-
 class Discord_Player:
 
     info_container = []  # structure ["title", "link", "file"]
@@ -94,8 +93,9 @@ class Discord_Player:
             f"a{msg.author.id}"))
         for row in info:
             self.playlist_queue.append(row)
-        await self.retrieve_and_download(self.playlist_queue[0][1])
+        tmp_song = self.playlist_queue[0][1]
         del self.playlist_queue[0]
+        await self.retrieve_data(msg, tmp_song)
 
     async def playlist_add(self, msg, args):
         try:
@@ -109,13 +109,14 @@ class Discord_Player:
 
     async def playlist_show(self, msg):
         info = self.cursor.execute(
-            "SELECT title, link from {}".format(msg.author.id))
+            "SELECT title, link from a{}".format(msg.author.id))
         stringContainer = []
         for i, e in enumerate(info):
             stringContainer.append(f"{i+1}: [{e[0]}]({e[1]})")
         if len(stringContainer) != 0:
             await msg.channel.send(embed=discord.Embed(title="Your playlist", description="\n".join(stringContainer), color=blue))
-        await msg.channel.send(embed=discord.Embed(title="Your playlist is empty", color=red))
+        else:
+            await msg.channel.send(embed=discord.Embed(title="Your playlist is empty", color=red))
 
     async def playlist_delete(self, msg, args):
         try:
@@ -403,8 +404,7 @@ class Discord_Player:
             os.remove(
                 f"{sys.path[0]}\\{self.info_container[0][FILE]}")
         except IndexError as e:
-            print(e)
-            return 0 
+            pass # playlist play
 
         del self.info_container[0]
         return 1
@@ -445,6 +445,7 @@ class Discord_Player:
             # playlist function, keeps adding new music from playlist_queue while playing a song
             if len(self.playlist_queue) > 0:
                 await self.retrieve_data(msg, self.playlist_queue[0][1])
+                del self.playlist_queue[0]
             await asyncio.sleep(1)
 
         if self.voice_client.is_connected():
