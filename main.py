@@ -3,7 +3,7 @@ import discord, asyncio, requests, sqlite3,\
 from bs4 import BeautifulSoup
 from discord.ext import commands
 from discord.utils import get
-from music_lib import Discord_Player
+from lib import Discord_Player
 
 bot = commands.Bot(command_prefix=">")
 
