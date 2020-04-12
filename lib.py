@@ -1,10 +1,7 @@
-import sqlite3
-import discord
-import os
-import sys
-import \
+
+import sqlite3, discord, os, sys,\
     youtube_dl, asyncio, requests,\
-    lyricsgenius
+    lyricsgenius, datetime
 from discord import FFmpegPCMAudio
 from bs4 import BeautifulSoup
 
@@ -41,6 +38,7 @@ class Discord_Player:
     playlist_queue = []
     invisible = 0
     requests = requests.Session()
+    history = []
 
     def __init__(self, db, bot, genius_token):
         self.connection = sqlite3.connect(db)
@@ -52,15 +50,15 @@ class Discord_Player:
         return self.playing
 
     async def get_history(self, channel):
-        history = "\n".join(self.anti_duplicates)
+        history = "\n".join(self.history)
         if history:
             await channel.send(embed=discord.Embed(title=f"History", description=history, color=blue))
         else:
             await channel.send(embed=discord.Embed(title=f"History is empty", color=red))
-        return self.anti_duplicates
+        return history
 
     async def clear_history(self, channel):
-        self.anti_duplicates.clear()
+        del self.history[:]
         await channel.send(embed=discord.Embed(title=f"Successfully cleared history", color=blue))
 
     async def get_lyrics(self, channel, song=0):
@@ -419,8 +417,13 @@ class Discord_Player:
 
         else:
             self.playing = 1
-            self.anti_duplicates.add(self.info_container[0][TITLE])
-            await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{self.info_container[0][TITLE]}]({self.info_container[0][LINK]})", color=blue)
+            title = self.info_container[0][TITLE]
+            link = self.info_container[0][LINK]
+
+            date = datetime.datetime.now()
+            self.history.append(f"{date.hour}:{date.minute}:{date.second} - [{title}]({link})")
+
+            await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
                                    # get video id from url and use that to get thumbnail in mqdefault
                                    .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
             if not self.invisible:
@@ -448,6 +451,7 @@ class Discord_Player:
                     if title not in self.anti_duplicates:
                         self.info_container.append((title, f"https://www.youtube.com{element['href']}",
                                                     f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
+                        self.anti_duplicates.add(title)
                         del self.info_container[0]
                         await self.download_music(msg)
                         return
