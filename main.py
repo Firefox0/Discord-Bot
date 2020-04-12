@@ -126,7 +126,6 @@ if __name__ == "__main__":
 
     print("Loading...")
 
-    # set token and prefix so the bot can run
     try:
         f = open("TOKEN.txt", "r")
     except IOError:
@@ -140,7 +139,6 @@ if __name__ == "__main__":
         prefix = f.readline().strip()
         f.close()
 
-    # sqlite 3
     connection = sqlite3.connect("playlists.db")
     cursor = connection.cursor()
 
@@ -150,7 +148,6 @@ if __name__ == "__main__":
 
     user_agent = {"Accept-Language": "en-US,en;q=0.5"}
 
-    # creating instances
     Player = Discord_Player("playlists.db", bot)
 
     print("Logging in...")
