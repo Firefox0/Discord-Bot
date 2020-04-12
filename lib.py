@@ -1,5 +1,6 @@
 import sqlite3, discord, os, sys,\
-    youtube_dl, asyncio, requests
+    youtube_dl, asyncio, requests,\
+    lyricsgenius
 from discord import FFmpegPCMAudio
 from bs4 import BeautifulSoup 
 
@@ -14,6 +15,8 @@ LINK = 1
 FILE = 2
 TIME = 2
 VIEWS = 3
+
+size = 2048 
 
 class Discord_Player:
 
@@ -39,9 +42,55 @@ class Discord_Player:
         self.connection = sqlite3.connect(db)
         self.cursor = self.connection.cursor()
         self.bot = bot
+        self.Genius = lyricsgenius.Genius("")
+    
 
     async def is_playing(self):
         return self.playing
+
+    async def set_direct(self, channel, value):
+        self.direct = value
+        if self.direct:
+            await channel.send(embed=discord.Embed(title=f"Successfully changed mode to DIRECT MODE", color=blue))
+        else:
+            await channel.send(embed=discord.Embed(title=f"Successfully changed mode to SEARCH MODE", color=blue))
+
+    async def get_direct(self, channel):
+        if self.direct:
+            await channel.send(embed=discord.Embed(title=f"Current mode: DIRECT", color=blue))
+        else:
+            await channel.send(embed=discord.Embed(title=f"Current mode: SEARCH", color=blue))
+        return self.direct
+
+    async def get_history(self, channel): 
+        history = "\n".join(self.anti_duplicates)
+        if history:
+            await channel.send(embed=discord.Embed(title=f"History", description=history, color=blue))
+        else:
+            await channel.send(embed=discord.Embed(title=f"History is empty", color=red))
+        return self.anti_duplicates
+    
+    async def clear_history(self, channel):
+        self.anti_duplicates.clear()
+        await channel.send(embed=discord.Embed(title=f"Successfully cleared history", color=blue))
+
+    async def get_lyrics(self, channel, song):
+        song = " ".join(e.capitalize() for e in song.split())
+        try:
+            song_ = self.Genius.search_song(song)
+        except:
+            await channel.send(embed=discord.Embed(title="Error", color=red))
+            return 0
+        else:
+            lyrics = song_.lyrics
+            length = len(lyrics)
+            if length > 2048:
+                formatted_lyrics = (lyrics[i:i+size] for i in range(0, length, size))
+                for e in formatted_lyrics:
+                    await channel.send(embed=discord.Embed(title=song.capitalize(), description=e, color=blue))
+            else:
+                await channel.send(embed=discord.Embed(title=song.capitalize(), description=lyrics, color=blue))
+            return lyrics
 
     async def playlist_play(self, msg): 
         info = self.cursor.execute("SELECT title, link from {}".format(
@@ -230,6 +279,7 @@ class Discord_Player:
     async def scrape_videos(self, channel, page_source):
             elements = page_source.findAll("div", attrs={
                 "class": "yt-lockup yt-lockup-tile yt-lockup-video vve-check clearfix"})
+
             # no search result
             if len(elements) == 0:
                 await channel.send(embed=discord.Embed(title="That does not exist", color=red))
@@ -242,35 +292,33 @@ class Discord_Player:
                 range_ = 1
 
             for index in range(range_):
-                temp_title = music_list.append([elements[index].find("a", attrs={
-                    "class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link"})["title"]])
-                temp_href = music_list[index].append(
-                    f"https://www.youtube.com{elements[index].find('a', attrs={'class': 'yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link'})['href']}")
+                element = elements[index]
+
+                temp_element = element.find("a", attrs={"class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link "})
+                temp_title = temp_element["title"]
+                temp_href = f"https://www.youtube.com{temp_element['href']}"
+
                 # livestreams dont have time
                 try:
-                    temp_length = music_list[index].append(
-                        elements[index].find("span", attrs={"class": "video-time"}).text)
+                    temp_length = element.find("span", attrs={"class": "style-scope ytd-thumbnail-overlay-time-status-renderer"}).text
                 except AttributeError:
-                    temp_length = music_list[index].append("LIVE")
+                    temp_length = "LIVE"
                     pass
 
                 temp_view = ""
-                for element in elements[index].findAll("li"):
-                    if "views" in element.text:
-                        temp_view = music_list[index].append(
-                            f"{element.text.split(' ')[0]} Views")
+                for element in element.findAll("span", attrs={"class": "style-scope ytd-video-meta-block"}):
+                    formatted = element.text.split(' ')[0]
+                    text = element.text
+                    if "views" in text:
+                        temp_view = f"{formatted} Views"
                         break
-                    elif "watching" in element.text:
-                        temp_view = music_list[index].append(
-                            f"{element.text.split(' ')[0]} Viewers")
+                    elif "watching" in text:
+                        temp_view = f"{formatted} Viewers"
                         break
 
-                if temp_view == "":
-                    temp_view = music_list[index].append("")
-
-                music_list[index].append(
+                music_list.append(
                     (temp_title, temp_href, temp_length, temp_view))
-            
+
             return music_list
 
     async def offer_music(self, channel, music_list):
@@ -343,7 +391,7 @@ class Discord_Player:
         with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
             ytdl.download([self.info_container[-1][LINK]])
 
-        if self.autoplay and len(self.info_container) > 1:
+        if not self.autoplay and len(self.info_container) > 1:
             await msg.channel.send(embed=discord.Embed(title="Added", description=f"[{self.info_container[-1][TITLE]}]({self.info_container[-1][LINK]})", color=blue))
 
         await self.play_music(msg)
@@ -355,7 +403,6 @@ class Discord_Player:
             if e == "Already connected to a voice channel.":
                 pass
         except AttributeError as e:
-            print(e)
             pass
         
         try:
@@ -366,6 +413,7 @@ class Discord_Player:
                 return 0 
         else:
             self.playing = 1
+            self.anti_duplicates.add(self.info_container[0][TITLE])
             await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{self.info_container[0][TITLE]}]({self.info_container[0][LINK]})", color=blue)
                                         # get video id from url and use that to get thumbnail in mqdefault
                                         .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
@@ -394,13 +442,11 @@ class Discord_Player:
                     if title not in self.anti_duplicates:
                         self.info_container.append((title, f"https://www.youtube.com{element['href']}",
                                                     f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
-                        self.anti_duplicates.add(title)
                         del self.info_container[0]
                         await self.download_music(msg)
                         return
             
             if not self.loop:
-                # bot stopped, everything was reset/deleted
                 try:
                     os.remove(
                         f"{sys.path[0]}\\{self.info_container[0][FILE]}")

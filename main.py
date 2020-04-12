@@ -78,6 +78,7 @@ class Client(discord.Client):
     @bot.command()
     async def q(self):
         if self.message.author.id == owner_id:
+            await Player.stop_music(self.message, True)
             connection.close()
             await bot.logout()
 
@@ -122,6 +123,22 @@ class Client(discord.Client):
     async def playlistclear(self):
         await Player.playlist_clear(self.message)
 
+    @bot.command() 
+    async def lyrics(self, *args):
+        await Player.get_lyrics(self.message.channel, " ".join(args))
+
+    @bot.command()
+    async def direct(self, arg):
+        await Player.set_direct(self.message.channel, int(arg))
+    
+    @bot.command()
+    async def history(self):
+        await Player.get_history(self.message.channel)
+    
+    @bot.command()
+    async def clearhistory(self):
+        await Player.clear_history(self.message.channel)
+
 if __name__ == "__main__":
 
     print("Loading...")
@@ -147,6 +164,9 @@ if __name__ == "__main__":
     owner_id = 609337374480269352
 
     user_agent = {"Accept-Language": "en-US,en;q=0.5"}
+
+    blue = 0x006bff
+    red = 0xec1717
 
     Player = Discord_Player("playlists.db", bot)
 
