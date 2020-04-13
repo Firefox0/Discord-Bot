@@ -128,10 +128,6 @@ class Discord_Player:
             self.connection.commit()
             await msg.channel.send(embed=discord.Embed(title="Song successfully deleted", color=blue))
 
-    def my_generator():
-        for e in rows:
-            yield e
-
     async def playlist_move(self, msg, args):
         arg1 = int(args[0])
         arg2 = int(args[1])
@@ -144,7 +140,10 @@ class Discord_Player:
             else:
                 rows.insert(0, rows[arg1-arg2])
                 del rows[arg1-arg2+1]
-                
+
+            def my_generator():
+                for e in rows:
+                    yield e
             self.cursor.execute(f"DELETE FROM a{msg.author.id} WHERE id>=?", str(min_))
             self.cursor.executemany(f"INSERT INTO a{msg.author.id}(title, link) VALUES(?, ?)", my_generator())
             self.connection.commit()
