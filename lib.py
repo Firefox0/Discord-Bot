@@ -98,15 +98,16 @@ class Discord_Player:
 
     async def playlist_add(self, msg, args, direct=1):
         try:
-            title, link = await self.retrieve_data(msg, " ".join(arg for arg in args[1:]), direct, 1)
+            title, link = await self.retrieve_data(msg, args, direct, 1)
             self.cursor.execute(f"INSERT INTO a{msg.author.id} (title, link) VALUES (?, ?)", (title, link))
-        except IndexError:
-            await self.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
+        except IndexError as e:
+            print(e)
+            await msg.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
         self.connection.commit()
-        await self.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
+        await msg.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
 
     async def playlist_show(self, msg):
-        info = self.cursor.execute(f"SELECT title, link from a{msg.author.id}")
+        info = self.cursor.execute(f"SELECT title, link FROM a{msg.author.id}")
         stringContainer = []
         for i, e in enumerate(info):
             stringContainer.append(f"{i+1}: [{e[0]}]({e[1]})")
@@ -115,52 +116,53 @@ class Discord_Player:
         else:
             await msg.channel.send(embed=discord.Embed(title="Your playlist is empty", color=red))
 
-    async def playlist_delete(self, msg, args):
+    async def playlist_delete(self, msg, arg):
         try:
-            self.cursor.execute("DELETE from {} where id = (?)".format(
-                f"a{self.msg.author.id}"), (args[1],))
+            self.cursor.execute(f"DELETE FROM a{msg.author.id} WHERE id = ?", arg)
         except IndexError:
-            await self.channel.send(embed=discord.Embed(title="Error", description="I need a number to delete the song", color=red))
+            await msg.channel.send(embed=discord.Embed(
+                title="Error", description="I need a number to delete the song", color=red))
         else:
-            self.connection.commit()
             self.cursor.execute(
-                "UPDATE {} SET id = id-1 WHERE id > (?)".format(f"a{self.msg.author.id}"), (args[1],))
-            await self.channel.send(embed=discord.Embed(title="Song successfully deleted", color=blue))
+                f"UPDATE a{msg.author.id} SET id = id-1 WHERE id > ?", arg)
+            self.connection.commit()
+            await msg.channel.send(embed=discord.Embed(title="Song successfully deleted", color=blue))
+
+    def my_generator():
+        for e in rows:
+            yield e
 
     async def playlist_move(self, msg, args):
+        arg1 = int(args[0])
+        arg2 = int(args[1])
         try:
-            min_ = min([int(args[1]), int(args[2])])
-            rows = list(self.cursor.execute(
-                "SELECT title, link FROM {} WHERE id>=?".format(f"a{msg.author.id}"), (min_,)))
-            if args[1] < args[2]:
-                rows.insert(int(args[2])-min_+1, rows[0])
+            min_ = min(arg1, arg2)
+            rows = list(self.cursor.execute(f"SELECT title, link FROM a{msg.author.id} WHERE id >=?", str(min_)))
+            if arg1 < arg2:
+                rows.insert(arg2-arg1+1, rows[0])
                 del rows[0]
             else:
-                rows.insert(0, rows[int(args[1])-min_])
-                del rows[int(args[1])-min_+1]
-
-            def my_generator():
-                for e in rows:
-                    yield e
-
-            self.cursor.execute("DELETE FROM {} WHERE id>=?".format(
-                f"a{self.msg.author.id}"), (min_,))
-            self.cursor.executemany("INSERT INTO {}(title, link) VALUES(?, ?)".format(
-                f"a{self.msg.author.id}"), my_generator())
+                rows.insert(0, rows[arg1-arg2])
+                del rows[arg1-arg2+1]
+                
+            self.cursor.execute(f"DELETE FROM a{msg.author.id} WHERE id>=?", str(min_))
+            self.cursor.executemany(f"INSERT INTO a{msg.author.id}(title, link) VALUES(?, ?)", my_generator())
             self.connection.commit()
-        except:
-            await self.channel.send(embed=discord.Embed(title="Error while moving", color=red))
+        except Exception as e:
+            print(e)
+            await msg.channel.send(embed=discord.Embed(title="Error while moving", color=red))
         else:
-            await self.channel.send(embed=discord.Embed(title="Successfully moved", color=blue))
+            await msg.channel.send(embed=discord.Embed(title="Successfully moved", color=blue))
 
     async def playlist_clear(self, msg):
         try:
             self.cursor.execute(
-                "DROP TABLE {}".format(f"a{self.msg.author.id}"))
+                f"DROP TABLE a{msg.author.id}")
         except:
-            await self.channel.send(embed=discord.Embed(title="Error while clearing", color=red))
+            await msg.channel.send(embed=discord.Embed(title="Error while clearing", color=red))
         else:
-            await self.channel.send(embed=discord.Embed(title="Successfully cleared", color=blue))
+            self.connection.commit()
+            await msg.channel.send(embed=discord.Embed(title="Successfully cleared", color=blue))
 
     async def remove_music(self, msg, content):
         if 0 < content < len(self.info_container):
@@ -391,7 +393,7 @@ class Discord_Player:
         with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
             ytdl.download([self.info_container[-1][LINK]])
 
-        if not self.autoplay and len(self.info_container) > 1:
+        if len(self.info_container) > 1:
             await msg.channel.send(embed=discord.Embed(title="Added", description=f"[{self.info_container[-1][TITLE]}]({self.info_container[-1][LINK]})", color=blue))
 
         await self.play_music(msg)

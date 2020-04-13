@@ -97,8 +97,8 @@ class Client(discord.Client):
     # table cant start with a number
     async def playlist(self, *args):
         try:
-            cursor.execute("CREATE TABLE {} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)".format(
-                f"a{self.message.author.id}"))
+            cursor.execute(
+                f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
         except:
             pass
 
@@ -107,8 +107,8 @@ class Client(discord.Client):
         await Player.playlist_play(self.message)
 
     @bot.command()
-    async def playlistadd(self, arg):
-        await Player.playlist_add(self.message, arg)
+    async def playlistadd(self, *args):
+        await Player.playlist_add(self.message, " ".join(args))
     
     @bot.command()
     async def playlistshow(self):
@@ -119,8 +119,8 @@ class Client(discord.Client):
         await Player.playlist_delete(self.message, arg)
 
     @bot.command()
-    async def playlistmove(self, arg):
-        await Player.playlist_move(self.message, arg)
+    async def playlistmove(self, *args):
+        await Player.playlist_move(self.message, args)
 
     @bot.command()
     async def playlistclear(self):
