@@ -163,10 +163,7 @@ if __name__ == "__main__":
 
     owner_id = 609337374480269352
 
-    user_agent = {"Accept-Language": "en-US,en;q=0.5"}
-
     Player = Discord_Player("playlists.db", bot, genius_token)
 
     print("Logging in...")
-
     bot.run(discord_token)
