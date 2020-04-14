@@ -145,7 +145,6 @@ if __name__ == "__main__":
         f.close()
 
     default_stream = "( ͡° ͜ʖ ͡°)"
-
     owner_id = 609337374480269352
 
     Player = Discord_Player("playlists.db", bot, genius_token)
