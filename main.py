@@ -149,14 +149,14 @@ if __name__ == "__main__":
     try:
         f = open("TOKEN.txt", "r")
     except IOError:
-        with open("TOKEN.txt", "a", encoding="utf-8") as f:
-            f.write(input("Looks like you are running this for the first time.\nEnter your token: ") +
-                    "\n" + input("Choose a prefix: "))
+        with open("TOKEN.txt", "w+", encoding="utf-8") as f:
+            f.write(input("Looks like you are running this for the first time.\nEnter your discord token: ") + "\n" +
+                    input("\nEnter a genius token to access song lyrics (you can leave this blank): "))
         os.startfile(__file__)
         sys.exit()
     else:
-        TOKEN = f.readline().strip()
-        prefix = f.readline().strip()
+        discord_token = f.readline().strip()
+        genius_token = f.readline().strip()
         f.close()
 
     connection = sqlite3.connect("playlists.db")
@@ -171,8 +171,8 @@ if __name__ == "__main__":
     blue = 0x006bff
     red = 0xec1717
 
-    Player = Discord_Player("playlists.db", bot, "C4iLrGY61H9RzCVeuT7dQ8xLgpttKFxMepSC415eGDR6ys5IdG17yfOcP2AZWp5D")
+    Player = Discord_Player("playlists.db", bot, genius_token)
 
     print("Logging in...")
 
-    bot.run(TOKEN)
+    bot.run(discord_token)

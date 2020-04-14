@@ -68,7 +68,7 @@ class Discord_Player:
         try:
             song_ = self.Genius.search_song(formatted_song)
         except:
-            await channel.send(embed=discord.Embed(title="Error", color=red))
+            await channel.send(embed=discord.Embed(title="Error. Is the token valid?", color=red))
             return 0
         try:
             lyrics = song_.lyrics
