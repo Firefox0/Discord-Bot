@@ -24,10 +24,7 @@ class Client(discord.Client):
 
     @bot.command()
     async def remove(self, content):
-        try:
-            await Player.remove_music(self.message, int(content))
-        except:
-            await self.message.channel.send(embed=discord.Embed(title="You can't remove that", color=red))
+        await Player.remove_music(self.message, int(content))
 
     @bot.command()
     async def pause(self):
@@ -167,9 +164,6 @@ if __name__ == "__main__":
     owner_id = 609337374480269352
 
     user_agent = {"Accept-Language": "en-US,en;q=0.5"}
-
-    blue = 0x006bff
-    red = 0xec1717
 
     Player = Discord_Player("playlists.db", bot, genius_token)
 
