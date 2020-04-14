@@ -45,6 +45,14 @@ class Discord_Player:
         self.bot = bot
         self.Genius = lyricsgenius.Genius(genius_token)
 
+    async def cleanup(self, channel, main_file):
+        if self.playing: 
+            await self.stop_music(channel, True)
+        self.connection.close()
+        if main_file:
+            os.startfile(main_file)
+        await self.bot.logout()
+
     async def is_playing(self):
         return self.playing
 
@@ -201,7 +209,7 @@ class Discord_Player:
         else:
             await msg.channel.send(embed=discord.Embed(title="Loop is already disabled", color=red))
 
-    async def stop_music(self, msg, restart):
+    async def stop_music(self, channel, restart):
         try:
             if self.voice_client.is_playing():
                 self.voice_client.stop()
@@ -213,11 +221,11 @@ class Discord_Player:
             for song in os.listdir():
                 if song.endswith(".m4a"):
                     os.remove(f"{sys.path[0]}\\{song}")
-            if not self.invisible:
+            if not restart and not self.invisible:
                 await self.bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
         except AttributeError:
             if not restart:
-                await msg.channel.send(embed=discord.Embed(title="I'm not connected to a voice channel", color=red))
+                await channel.send(embed=discord.Embed(title="I'm not connected to a voice channel", color=red))
 
     async def pause_music(self, msg):
         try:
@@ -430,7 +438,8 @@ class Discord_Player:
             link = self.info_container[0][LINK]
 
             date = datetime.datetime.now()
-            self.history.append(f"{date.hour:02}:{date.minute:02}:{date.second:02} - [{title}]({link})")
+            self.history.append(
+                f"{date.hour:02}:{date.minute:02}:{date.second:02} {'-'} [{title}]({link})")
 
             await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
                                    # get video id from url and use that to get thumbnail in mqdefault

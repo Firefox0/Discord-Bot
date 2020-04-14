@@ -77,27 +77,20 @@ class Client(discord.Client):
 
     @bot.command()
     async def q(self):
-        if self.message.author.id == owner_id:
-            await Player.stop_music(self.message, True)
-            connection.close()
-            await bot.logout()
+        await Player.cleanup(self.message.channel)
 
     @bot.command()
     async def r(self):
-        if self.message.author.id == owner_id:
-            await Player.stop_music(self.message, True)
-            connection.close()
-            os.startfile(__file__)
-            await bot.logout()
-            
-    @bot.command()
+        await Player.cleanup(self.message.channel, __file__)
+    
+    #@bot.command()
     # table cant start with a number
-    async def playlist(self, *args):
-        try:
-            cursor.execute(
-                f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
-        except:
-            pass
+    #async def playlist(self, *args):
+    #    try:
+    #        cursor.execute(
+    #            f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
+    #    except:
+    #        pass
 
     @bot.command()
     async def playlistplay(self):
@@ -156,14 +149,12 @@ if __name__ == "__main__":
         genius_token = f.readline().strip()
         f.close()
 
-    connection = sqlite3.connect("playlists.db")
-    cursor = connection.cursor()
-
     default_stream = "( ͡° ͜ʖ ͡°)"
 
     owner_id = 609337374480269352
 
     Player = Discord_Player("playlists.db", bot, genius_token)
-
+    if not genius_token: 
+        print("Warning: Couldn't find genius token, song lyrics are not available.")
     print("Logging in...")
     bot.run(discord_token)
