@@ -10,7 +10,6 @@ red = 0xec1717
 default_stream = "( ͡° ͜ʖ ͡°)"
 user_agent = {"Accept-Language": "en-US,en;q=0.5"}
 
-# constant variables to access elements in tuples in list
 TITLE = 0
 LINK = 1
 FILE = 2
@@ -21,8 +20,8 @@ size = 2048
 
 class Discord_Player:
 
-    info_container = []  # structure ["title", "link", "file"]
-    anti_duplicates = set()  # init. set for lookup (faster), = {} would be dict
+    info_container = [] 
+    anti_duplicates = set()
     displayed_songs = 5
     volume = 0.3
     autoplay = 0
@@ -95,6 +94,13 @@ class Discord_Player:
         else:
             await channel.send(embed=discord.Embed(title=formatted_song, description=lyrics, color=blue))
         return lyrics
+
+    async def playlist_init(self, id):
+        try:
+            cursor.execute(
+                f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
+        except:
+            pass
 
     async def playlist_play(self, msg):
         info = self.cursor.execute(f"SELECT title, link FROM a{msg.author.id}")
@@ -442,14 +448,11 @@ class Discord_Player:
                 f"{date.hour:02}:{date.minute:02}:{date.second:02} {'-'} [{title}]({link})")
 
             await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
-                                   # get video id from url and use that to get thumbnail in mqdefault
                                    .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
             if not self.invisible:
                 await self.bot.change_presence(activity=discord.Streaming(name=self.info_container[0][TITLE], url=f"https://twitch.tv/{default_stream}"))
 
-        # check every second if song is still playing or paused
         while self.voice_client.is_playing() or self.voice_client.is_paused():
-            # playlist function, keeps adding new music from playlist_queue while playing a song
             if len(self.playlist_queue) > 0:
                 tmp_song = self.playlist_queue[0][1]
                 del self.playlist_queue[0]
@@ -458,7 +461,6 @@ class Discord_Player:
 
         if self.voice_client.is_connected():
             
-            # autoplay last song only
             if self.autoplay and len(self.info_container) == 1:
                 page_source = BeautifulSoup(self.requests.get(
                     self.info_container[0][LINK], headers=user_agent).text, "html.parser")

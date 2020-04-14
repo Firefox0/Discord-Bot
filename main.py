@@ -83,14 +83,9 @@ class Client(discord.Client):
     async def r(self):
         await Player.cleanup(self.message.channel, __file__)
     
-    #@bot.command()
-    # table cant start with a number
-    #async def playlist(self, *args):
-    #    try:
-    #        cursor.execute(
-    #            f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
-    #    except:
-    #        pass
+    @bot.command()
+    async def playlist(self, *args):
+        await Player.playlist_init(self.message.author.id)
 
     @bot.command()
     async def playlistplay(self):
