@@ -37,7 +37,7 @@ class Discord_Player:
     invisible = 0
     requests = requests.Session()
     history = []
-    ytdl = youtube_dl.YoutubeDL(before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5" )
+    ytdl = youtube_dl.YoutubeDL()
 
     def __init__(self, db, bot, genius_token):
         self.connection = sqlite3.connect(db)
