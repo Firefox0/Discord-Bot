@@ -15,12 +15,20 @@ class Client(discord.Client):
         await bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
 
     @bot.command()
+    async def stream(self, url):
+        await Player.stream_music(self.message, url)
+
+    @bot.command()
     async def play(self, *args):
         await Player.retrieve_data(self.message, " ".join(arg for arg in args))
+        await Player.download_music(self.message)
+        await Player.play_music(self.message)
     
     @bot.command()
     async def search(self, *args):
         await Player.retrieve_data(self.message, " ".join(arg for arg in args), direct=0)
+        await Player.download_music(self.message)
+        await Player.play_music(self.message)
 
     @bot.command()
     async def remove(self, content):

@@ -37,6 +37,7 @@ class Discord_Player:
     invisible = 0
     requests = requests.Session()
     history = []
+    ytdl = youtube_dl.YoutubeDL(before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5" )
 
     def __init__(self, db, bot, genius_token):
         self.connection = sqlite3.connect(db)
@@ -109,6 +110,8 @@ class Discord_Player:
         tmp_song = self.playlist_queue[0][1]
         del self.playlist_queue[0]
         await self.retrieve_data(msg, tmp_song)
+        await self.download_music(self.message)
+        await self.play_music(self.message)
 
     async def playlist_add(self, msg, args, direct=1):
         try:
@@ -390,10 +393,7 @@ class Discord_Player:
         self.info_container.append(
             (title.replace(' - YouTube', ''), link, f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
 
-        try:
-            await self.download_music(msg)
-        except youtube_dl.utils.DownloadError:
-            await msg.channel.send(embed=discord.Embed(title="This video is unavailable", color=red))
+        return 1
 
     async def download_music(self, msg):
 
@@ -403,13 +403,15 @@ class Discord_Player:
             "quiet": 0
         }
 
-        with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
-            ytdl.download([self.info_container[-1][LINK]])
+        try:
+            with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
+                ytdl.download([self.info_container[-1][LINK]])
+        except youtube_dl.utils.DownloadError:
+            return 0
 
         if len(self.info_container) > 1:
             await msg.channel.send(embed=discord.Embed(title="Added", description=f"[{self.info_container[-1][TITLE]}]({self.info_container[-1][LINK]})", color=blue))
-
-        await self.play_music(msg)
+        return 1
 
     async def delete_current_song(self):
         try:
@@ -421,14 +423,28 @@ class Discord_Player:
         del self.info_container[0]
         return 1
 
-    async def play_music(self, msg):
+    async def stream_music(self, msg, url):
+        data = self.ytdl.extract_info(url, download=0)
+        video_url = data["formats"][0]["url"]
+        player = discord.FFmpegPCMAudio(video_url)
+        if not await self.connect_bot(msg):
+            return 0
+        self.voice_client.play(player)
+        await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{data['title']}]({url})", color=blue))
+
+    async def connect_bot(self, msg):
         try:
             self.voice_client = await msg.author.voice.channel.connect(reconnect=1)
         except discord.errors.ClientException as e:
             if e == "Already connected to a voice channel.":
                 pass
-        except AttributeError as e:
+        except AttributeError:
             await msg.channel.send(embed=discord.Embed(title="Can't connect to voice channel", color=red))
+            return 0
+        return 1
+
+    async def play_music(self, msg):
+        if not await self.connect_bot(msg):
             return 0
 
         try:
@@ -474,6 +490,7 @@ class Discord_Player:
                         self.anti_duplicates.add(title)
                         await self.delete_current_song()
                         await self.download_music(msg)
+                        await self.play_music(msg)
                         return 1 
 
             if not self.loop:
