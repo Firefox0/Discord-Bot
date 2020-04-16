@@ -45,7 +45,7 @@ class Discord_Player:
         self.bot = bot
         self.Genius = lyricsgenius.Genius(genius_token)
 
-    async def cleanup(self, channel, main_file):
+    async def cleanup(self, channel, main_file=0):
         if self.playing: 
             await self.stop_music(channel, True)
         self.connection.close()
