@@ -3,7 +3,7 @@ import discord, asyncio, requests, sqlite3,\
 from bs4 import BeautifulSoup
 from discord.ext import commands
 from discord.utils import get
-from lib import Discord_Player
+from lib import DiscordPlayer
 
 bot = commands.Bot(command_prefix=">")
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     default_stream = "( ͡° ͜ʖ ͡°)"
     owner_id = 609337374480269352
 
-    Player = Discord_Player("playlists.db", bot, genius_token)
+    Player = DiscordPlayer("playlists.db", bot, genius_token)
     if not genius_token: 
         print("Warning: Couldn't find genius token, song lyrics are not available.")
     print("Logging in...")

@@ -18,7 +18,7 @@ VIEWS = 3
 
 size = 2048
 
-class Discord_Player:
+class DiscordPlayer:
 
     info_container = [] 
     anti_duplicates = set()
