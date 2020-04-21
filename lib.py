@@ -99,7 +99,7 @@ class DiscordPlayer:
     async def playlist_init(self, id):
         try:
             cursor.execute(
-                f"CREATE TABLE a{self.message.author.id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
+                f"CREATE TABLE a{id} (id INTEGER PRIMARY KEY, title TEXT, link TEXT)")
         except:
             pass
 
@@ -110,8 +110,8 @@ class DiscordPlayer:
         tmp_song = self.playlist_queue[0][1]
         del self.playlist_queue[0]
         await self.retrieve_data(msg, tmp_song)
-        await self.download_music(self.message)
-        await self.play_music(self.message)
+        await self.download_music(msg)
+        await self.play_music(msg)
 
     async def playlist_add(self, msg, args, direct=1):
         try:
@@ -295,9 +295,8 @@ class DiscordPlayer:
         await msg.channel.send(embed=discord.Embed(title=f"Current volume is: {self.volume*100}", color=blue))
 
     async def scrape_videos(self, channel, page_source, range_=0):
-        elements = page_source.findAll("div", attrs={
-            "class": "yt-lockup yt-lockup-tile yt-lockup-video vve-check clearfix"})
-
+        elements = page_source.find_all("div", attrs={
+                                        "class": "yt-lockup yt-lockup-tile yt-lockup-video vve-check clearfix"})
         # no search result
         if len(elements) == 0:
             await channel.send(embed=discord.Embed(title="That does not exist", color=red))
@@ -311,9 +310,14 @@ class DiscordPlayer:
         for index in range(range_):
             element = elements[index]
 
-            temp_element = element.find("a", attrs={
-                                        "class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link "})
-            temp_title = temp_element["title"]
+            try:
+                temp_element = element.find("a", attrs={"class": "yt-uix-tile-link yt-ui-ellipsis yt-ui-ellipsis-2 yt-uix-sessionlink spf-link"})
+            except:
+                await channel.send(embed=discord.Embed(title="Looks like Youtube did some changes to their website. Shutting down. :(", color=red))
+                await self.cleanup(channel)
+                return -1
+            
+            temp_title = temp_element.text
             temp_href = f"https://www.youtube.com{temp_element['href']}"
 
             try:
@@ -405,9 +409,12 @@ class DiscordPlayer:
 
         try:
             with youtube_dl.YoutubeDL(ytdl_arguments) as ytdl:
+                ytdl.cache.remove()
                 ytdl.download([self.info_container[-1][LINK]])
-        except youtube_dl.utils.DownloadError:
-            return 0
+        except youtube_dl.utils.DownloadError as e:
+            await msg.channel.send(embed=discord.Embed(title="Download failed. Youtube probably did some changes. Shutting down.", color=red))
+            await self.cleanup(msg.channel)
+            return -1
 
         if len(self.info_container) > 1:
             await msg.channel.send(embed=discord.Embed(title="Added", description=f"[{self.info_container[-1][TITLE]}]({self.info_container[-1][LINK]})", color=blue))
@@ -453,7 +460,6 @@ class DiscordPlayer:
         except discord.errors.ClientException as e:
             if e == "Already playing audio.":
                 return 0
-
         else:
             self.playing = 1
             title = self.info_container[0][TITLE]
