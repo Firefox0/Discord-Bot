@@ -479,6 +479,7 @@ class DiscordPlayer:
                 tmp_song = self.playlist_queue[0][1]
                 del self.playlist_queue[0]
                 await self.retrieve_data(msg, tmp_song)
+                await self.download_music(msg)
             await asyncio.sleep(1)
 
         if self.voice_client.is_connected():
