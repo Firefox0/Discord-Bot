@@ -135,6 +135,10 @@ class Client(discord.Client):
     async def clearhistory(self):
         await Player.clear_history(self.message.channel)
 
+def restart():
+    os.startfile(__file__)
+    sys.exit()
+
 if __name__ == "__main__":
 
     print("Loading...")
@@ -143,20 +147,26 @@ if __name__ == "__main__":
         f = open("TOKEN.txt", "r")
     except IOError:
         with open("TOKEN.txt", "w+", encoding="utf-8") as f:
-            f.write(input("Looks like you are running this for the first time.\nEnter your discord token: ") + "\n" +
+            f.write(input("Looks like you are running this for the first time.\n\nEnter your Discord ID: ") + "\n" +
+                    input("\nEnter your discord token: ") + "\n" +  
                     input("\nEnter a genius token to access song lyrics (you can leave this blank): "))
-        os.startfile(__file__)
-        sys.exit()
+        restart()
     else:
+        owner_id = f.readline().strip()
         discord_token = f.readline().strip()
         genius_token = f.readline().strip()
         f.close()
 
-    default_stream = "( ͡° ͜ʖ ͡°)"
-    owner_id = 609337374480269352
 
-    Player = DiscordPlayer("playlists.db", bot, genius_token)
+    if not owner_id or not discord_token:
+        input("Error: Owner ID and/or discord token missing. Retry.")
+        os.remove("TOKEN.txt")
+        restart()
     if not genius_token: 
         print("Warning: Couldn't find genius token, song lyrics are not available.")
+
+    default_stream = "( ͡° ͜ʖ ͡°)"
+    Player = DiscordPlayer("playlists.db", bot, genius_token)
+
     print("Logging in...")
     bot.run(discord_token)
