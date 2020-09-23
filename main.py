@@ -15,21 +15,11 @@ class Client(discord.Client):
         await bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
 
     @bot.command()
-    async def stream(self, url):
-        await Player.stream_music(self.message, url)
-
-    @bot.command()
     async def play(self, *args):
-        await Player.retrieve_data(self.message, " ".join(arg for arg in args))
-        await Player.download_music(self.message)
-        await Player.play_music(self.message)
+        if await Player.retrieve_data(self.message, " ".join(arg for arg in args)):
+            await Player.download_music(self.message)
+            await Player.play_music(self.message)
     
-    @bot.command()
-    async def search(self, *args):
-        await Player.retrieve_data(self.message, " ".join(arg for arg in args), direct=0)
-        await Player.download_music(self.message)
-        await Player.play_music(self.message)
-
     @bot.command()
     async def remove(self, content):
         await Player.remove_music(self.message, int(content))
@@ -147,16 +137,17 @@ if __name__ == "__main__":
         f = open("TOKEN.txt", "r")
     except IOError:
         with open("TOKEN.txt", "w+", encoding="utf-8") as f:
-            f.write(input("Looks like you are running this for the first time.\n\nEnter your Discord ID: ") + "\n" +
-                    input("\nEnter your discord token: ") + "\n" +  
-                    input("\nEnter a genius token to access song lyrics (you can leave this blank): "))
+            f.write(input("Looks like you are running this for the first time.\n\nEnter your Discord ID: ") + 
+                    input("\nEnter your discord token: ") +
+                    input("\nEnter a genius token to access song lyrics (you can leave this blank): ") +
+                    input("\nEnter a Youtube Data API key (you can leave this blank): "))
         restart()
     else:
         owner_id = f.readline().strip()
         discord_token = f.readline().strip()
         genius_token = f.readline().strip()
+        youtube_token = f.readline().strip()
         f.close()
-
 
     if not owner_id or not discord_token:
         input("Error: Owner ID and/or discord token missing. Retry.")
@@ -166,7 +157,7 @@ if __name__ == "__main__":
         print("Warning: Couldn't find genius token, song lyrics are not available.")
 
     default_stream = "( ͡° ͜ʖ ͡°)"
-    Player = DiscordPlayer("playlists.db", bot, genius_token)
+    Player = DiscordPlayer(bot, "playlists.db", genius_token, youtube_token)
 
     print("Logging in...")
     bot.run(discord_token)
