@@ -16,6 +16,8 @@ class Client(discord.Client):
 
     @bot.command()
     async def play(self, *args):
+        if not await Player.connect_bot(self.message):
+            return
         if await Player.retrieve_data(self.message, " ".join(arg for arg in args)):
             await Player.download_music(self.message)
             await Player.play_music(self.message)
@@ -148,16 +150,15 @@ if __name__ == "__main__":
         genius_token = f.readline().strip()
         youtube_token = f.readline().strip()
         f.close()
-
     if not owner_id or not discord_token:
         input("Error: Owner ID and/or discord token missing. Retry.")
         os.remove("TOKEN.txt")
         restart()
     if not genius_token: 
         print("Warning: Couldn't find genius token, song lyrics are not available.")
-
+    if not youtube_token:
+        print("Warning: Couldn't find youtube token, autoplay feature won't be supported.")
     default_stream = "( ͡° ͜ʖ ͡°)"
     Player = DiscordPlayer(bot, "playlists.db", genius_token, youtube_token)
-
     print("Logging in...")
     bot.run(discord_token)
