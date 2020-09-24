@@ -3,7 +3,7 @@ import discord, asyncio, requests, sqlite3,\
 from bs4 import BeautifulSoup
 from discord.ext import commands
 from discord.utils import get
-from lib import DiscordPlayer
+from player import DiscordPlayer
 
 bot = commands.Bot(command_prefix=">")
 
@@ -141,12 +141,14 @@ if __name__ == "__main__":
         with open("TOKEN.txt", "w+", encoding="utf-8") as f:
             f.write(input("Looks like you are running this for the first time.\n\nEnter your Discord ID: ") + 
                     input("\nEnter your discord token: ") +
+                    input("\nEnter the name of the database you want to create (you can leave this blank): ") + 
                     input("\nEnter a genius token to access song lyrics (you can leave this blank): ") +
                     input("\nEnter a Youtube Data API key (you can leave this blank): "))
         restart()
     else:
         owner_id = f.readline().strip()
         discord_token = f.readline().strip()
+        db_name = f.readline().strip()
         genius_token = f.readline().strip()
         youtube_token = f.readline().strip()
         f.close()
@@ -154,11 +156,13 @@ if __name__ == "__main__":
         input("Error: Owner ID and/or discord token missing. Retry.")
         os.remove("TOKEN.txt")
         restart()
+    if not db_name:
+        print("Warning: Couldn't find database, playlists won't be available.")
     if not genius_token: 
-        print("Warning: Couldn't find genius token, song lyrics are not available.")
+        print("Warning: Couldn't find genius token, song lyrics won't be available.")
     if not youtube_token:
         print("Warning: Couldn't find youtube token, autoplay feature won't be supported.")
     default_stream = "( ͡° ͜ʖ ͡°)"
-    Player = DiscordPlayer(bot, "playlists.db", genius_token, youtube_token)
+    Player = DiscordPlayer(bot, db_name, genius_token, youtube_token)
     print("Logging in...")
     bot.run(discord_token)
