@@ -37,10 +37,8 @@ class DiscordPlayer:
     loop = 0
     restricted_characters = ["/", ":", "*", "?", '"', "<", ">", "|", "\\", "'"]
     playing = 0
-    number_emotes = [
-        ":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:",
-        ":one::zero:", ":one::one:", ":one::two:", ":one::three:", ":one::four:", ":one::five:"
-    ]
+    number_emotes = [":one:", ":two:", ":three:", ":four:", ":five:", ":six:", ":seven:", ":eight:", ":nine:",
+                    ":one::zero:", ":one::one:", ":one::two:", ":one::three:", ":one::four:", ":one::five:"]
     voice_client = None
     playlist_queue = []
     invisible = 0
@@ -48,9 +46,10 @@ class DiscordPlayer:
     history = []
     ytdl = youtube_dl.YoutubeDL()
     ytdl_arguments = {
-                "format": "m4a",
-                "quiet": 0
+            "format": "m4a",
+            "quiet": 0
     }
+
     def __init__(self, bot, db=None, genius_token=None, youtube_token=None):
         self.bot = bot
         if db:
@@ -60,11 +59,12 @@ class DiscordPlayer:
             self.Genius = lyricsgenius.Genius(genius_token)
         if youtube_token:
             self.yt = YoutubeDataApi(youtube_token)
-
+            
     async def cleanup(self, channel, main_file=0):
         if self.playing: 
             await self.stop_music(channel, True)
-        self.connection.close()
+        if self.connection:
+            self.connection.close()
         if main_file:
             os.startfile(main_file)
         await self.bot.logout()
@@ -136,8 +136,9 @@ class DiscordPlayer:
         except IndexError as e:
             print(e)
             await msg.channel.send(embed=discord.Embed(title="Error", description="I need a link", color=red))
-        self.connection.commit()
-        await msg.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
+        else:
+            self.connection.commit()
+            await msg.channel.send(embed=discord.Embed(title="Successfully added", color=blue))
 
     async def playlist_show(self, msg):
         info = self.cursor.execute(f"SELECT title, link FROM a{msg.author.id}")
@@ -245,7 +246,11 @@ class DiscordPlayer:
             self.anti_duplicates.clear()
             for song in os.listdir():
                 if song.endswith(".m4a"):
-                    os.remove(f"{sys.path[0]}\\{song}")
+                    try:
+                        os.remove(f"{sys.path[0]}\\{song}")
+                    except PermissionError as e:
+                        print(e)
+                        break
             if not restart and not self.invisible:
                 await self.bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
         except AttributeError:
@@ -278,7 +283,6 @@ class DiscordPlayer:
             await msg.channel.send(embed=discord.Embed(title="I'm not connected to a voice channel", color=red))
 
     async def start_autoplay(self, msg):
-
         if self.autoplay:
             await msg.channel.send(embed=discord.Embed(title="Auto play is already enabled", color=red))
         else:
@@ -298,7 +302,6 @@ class DiscordPlayer:
 
     async def set_volume(self, msg, volume):
         self.volume = float(volume) / 100
-
         try:
             if self.voice_client.is_connected():
                 self.voice_client.source.volume = self.volume
@@ -311,7 +314,6 @@ class DiscordPlayer:
         await msg.channel.send(embed=discord.Embed(title=f"Current volume is: {self.volume*100}", color=blue))
 
     async def retrieve_data(self, msg, args, direct=1, playlist_add=0):
-
         try:
             if ("youtube." in args):
                 stdout = subprocess.check_output(["youtube-dl", args, "-j"])
@@ -320,24 +322,19 @@ class DiscordPlayer:
         except subprocess.CalledProcessError:
             await msg.channel.send(embed=discord.Embed(title=f"Couldn't find {args}", color=red))
             return 0
-
         infos = json.loads(stdout)
         title = infos["title"]
         link = f"https://www.youtube.com/watch?v={infos['id']}"
-
         if playlist_add:
             return title, link
-
         self.info_container.append(
             (title.replace(' - YouTube', ''), link, f"{''.join(character.replace(character, ' ') if character in self.restricted_characters else character for character in title)}.m4a"))
-
         return 1
 
     async def download_music(self, msg, output=True):
         self.ytdl_arguments["outtmpl"] = self.info_container[-1][FILE]
         try:
             with youtube_dl.YoutubeDL(self.ytdl_arguments) as ytdl:
-                ytdl.cache.remove()
                 ytdl.download([self.info_container[-1][LINK]])
         except youtube_dl.utils.DownloadError as e:
             await msg.channel.send(embed=discord.Embed(title="Download failed. Youtube probably did some changes. Shutting down.", color=red))
@@ -355,21 +352,22 @@ class DiscordPlayer:
             os.remove(
                 f"{sys.path[0]}\\{self.info_container[0][FILE]}")
         except IndexError as e:
-            pass # playlist play
-
-        del self.info_container[0]
-        return 1
+            return 0
+        else:
+            del self.info_container[0]
+            return 1
 
     async def connect_bot(self, msg):
         try:
             self.voice_client = await msg.author.voice.channel.connect(reconnect=1)
         except discord.errors.ClientException as e:
             if e == "Already connected to a voice channel.":
-                pass
+                return 1
         except AttributeError:
             await msg.channel.send(embed=discord.Embed(title="Can't connect to voice channel", color=red))
             return 0
-        return 1
+        else:
+            return 1
 
     async def get_next_recommended(self, msg):
         """ download the next recommended video """
@@ -408,21 +406,17 @@ class DiscordPlayer:
             return 1
 
     async def play_music(self, msg):
-        if not await self.connect_bot(msg):
-            return 0
         if await self.start_player():
             self.playing = 1
             title = self.info_container[0][TITLE]
             link = self.info_container[0][LINK]
-
             date = datetime.datetime.now()
             self.history.append(
                 f"{date.hour:02}:{date.minute:02}:{date.second:02} {'-'} [{title}]({link})")
-
-            await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
-                                   .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
             if not self.invisible:
                 await self.bot.change_presence(activity=discord.Streaming(name=self.info_container[0][TITLE], url=f"https://twitch.tv/{default_stream}"))
+            await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
+                                   .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
         while self.voice_client.is_playing() or self.voice_client.is_paused():
             await self.prepare_playlist_song(msg)
             await asyncio.sleep(1)
@@ -437,9 +431,4 @@ class DiscordPlayer:
                     await self.bot.change_presence(activity=discord.Streaming(name=default_stream, url=f"https://twitch.tv/{default_stream}"))
             else:
                 await self.play_music(msg)
-        else:
-            if self.playing:
-                self.voice_client = await self.author.voice.channel.connect(reconnect=1)
-                await self.play_music(msg)
-
         self.playing = 0
