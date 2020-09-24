@@ -400,23 +400,28 @@ class DiscordPlayer:
         except discord.errors.ClientException as e:
             if e == "Already playing audio.":
                 return 1
-            else:
-                return 0
+        except AttributeError as e:
+            print(e)
+            return 0
         else:
             return 1
 
     async def play_music(self, msg):
-        if await self.start_player():
-            self.playing = 1
-            title = self.info_container[0][TITLE]
-            link = self.info_container[0][LINK]
-            date = datetime.datetime.now()
-            self.history.append(
-                f"{date.hour:02}:{date.minute:02}:{date.second:02} {'-'} [{title}]({link})")
-            if not self.invisible:
-                await self.bot.change_presence(activity=discord.Streaming(name=self.info_container[0][TITLE], url=f"https://twitch.tv/{default_stream}"))
-            await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
-                                   .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
+        if not self.voice_client:
+            if not await self.connect_bot(msg):
+                return
+        if not await self.start_player():
+            return
+        self.playing = 1
+        title = self.info_container[0][TITLE]
+        link = self.info_container[0][LINK]
+        date = datetime.datetime.now()
+        self.history.append(
+            f"{date.hour:02}:{date.minute:02}:{date.second:02} {'-'} [{title}]({link})")
+        if not self.invisible:
+            await self.bot.change_presence(activity=discord.Streaming(name=self.info_container[0][TITLE], url=f"https://twitch.tv/{default_stream}"))
+        await msg.channel.send(embed=discord.Embed(title="Now Playing", description=f"[{title}]({link})", color=blue)
+                                .set_image(url=f"https://img.youtube.com/vi/{self.info_container[0][LINK].split('=', 1)[1]}/mqdefault.jpg"))
         while self.voice_client.is_playing() or self.voice_client.is_paused():
             await self.prepare_playlist_song(msg)
             await asyncio.sleep(1)
